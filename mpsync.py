@@ -33,7 +33,7 @@ class MPSync(threading.Thread):
     """Time to wait after filesystem changes before uploading begins."""
     WAITING_TIME = 0.5
 
-    def __init__(self, folder=".", port="/dev/tty.SLAB_USBtoUART", verbose=False):
+    def __init__(self, folder=".", port="/dev/ttyUSB0", verbose=False):
         super().__init__()
         self.folder = folder
         self.port = port
@@ -146,7 +146,7 @@ class MPSync(threading.Thread):
             sys.exit(1)
 
         # Create a Watchdog on the folder
-        eh = PatternMatchingEventHandler("*", "", False, False)  # match everything
+        eh = PatternMatchingEventHandler(patterns=["*"], ignore_patterns=[""], ignore_directories=False, case_sensitive=False)  # match everything
         eh.on_created = self._on_created
         eh.on_modified = self._on_modified
         eh.on_moved = self._on_moved
@@ -209,7 +209,7 @@ def parse_args():
         "-p",
         "--port",
         help="Serial port of the MicroPython board.",
-        default="/dev/tty.SLAB_USBtoUART",
+        default="/dev/ttyUSB0",
     )
     parser.add_argument(
         "-v",
