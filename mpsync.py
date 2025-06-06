@@ -14,7 +14,7 @@ from mp.mpfexp import MpFileExplorer, MpFileExplorerCaching, RemoteIOError
 from mp.pyboard import PyboardError
 
 
-class MPSync():
+class MPSync:
     """
     The class that handles the the synchronizing between the folder and the MicroPython
     board.
@@ -29,7 +29,9 @@ class MPSync():
     """Time to wait after filesystem changes before uploading begins."""
     WAITING_TIME = 0.5
 
-    def __init__(self, folder=".", port="/dev/ttyUSB0", verbose=False, reset=False, caching=False):
+    def __init__(
+        self, folder=".", port="/dev/ttyUSB0", verbose=False, reset=False, caching=False
+    ):
         self.folder = folder
         self.port = port
         self.reset = reset
@@ -45,12 +47,12 @@ class MPSync():
             raise Exception("unconnected, please connect!")
         return self._explorer
 
-    def _copy_file(self, file:PosixPath):
+    def _copy_file(self, file: PosixPath):
         dst = file.as_posix().replace(self.folder, "")
         print(f"Copying {dst}")
         self.explorer.put(file, dst)
 
-    def _create_folder(self, folder:PosixPath):
+    def _create_folder(self, folder: PosixPath):
         dst = folder.as_posix().replace(self.folder, "")
         print(f"Creating folder {dst}")
         try:
@@ -58,7 +60,7 @@ class MPSync():
         except RemoteIOError as e:
             print(e)
 
-    def _delete(self, path:PosixPath):
+    def _delete(self, path: PosixPath):
         dst = path.as_posix().replace(self.folder, "")
         print(f"Deleting {dst}")
         self.explorer.rm(dst)
@@ -85,19 +87,17 @@ class MPSync():
             for i in range(self.CONNECT_TRIES):
                 if self.caching:
                     self._explorer = MpFileExplorerCaching(
-                        f"{self.MPF_PROTOCOL}:{self.port}",
-                        reset=self.reset
+                        f"{self.MPF_PROTOCOL}:{self.port}", reset=self.reset
                     )
                 else:
                     self._explorer = MpFileExplorer(
-                        f"{self.MPF_PROTOCOL}:{self.port}",
-                        reset=self.reset
+                        f"{self.MPF_PROTOCOL}:{self.port}", reset=self.reset
                     )
                 if self.explorer:
                     print("Connected to %s" % self.explorer.sysname)
                     return True
                 print(f"could not connect to {self.port} [{i}/{self.CONNECT_TRIES}]")
-        except (PyboardError,ConError,AttributeError) as e:
+        except (PyboardError, ConError, AttributeError) as e:
             print(str(e))
         print(f"could not connect to board {self.port}!")
         return False
@@ -112,7 +112,7 @@ class MPSync():
             return
         raise Exception("can't disconnect")
 
-    def sync(self,f: Optional[PosixPath]=None):
+    def sync(self, f: Optional[PosixPath] = None):
         if not f:
             f = PosixPath(self.folder)
         for entry in f.glob("*"):
@@ -122,6 +122,7 @@ class MPSync():
             elif entry.is_file():
                 self._copy_file(entry)
         return
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -160,6 +161,7 @@ def main():
         print(f"Start syncing folder '{args.folder}' to board at '{args.port}'")
         mps.sync()
     return
+
 
 if __name__ == "__main__":
     main()
