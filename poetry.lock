@@ -2,32 +2,35 @@
 
 [[package]]
 name = "colorama"
-version = "0.4.6"
+version = "0.3.9"
 description = "Cross-platform colored terminal text."
 optional = false
-python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
+python-versions = "*"
 groups = ["main"]
 files = [
-    {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
-    {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
+    {file = "colorama-0.3.9-py2.py3-none-any.whl", hash = "sha256:463f8483208e921368c9f306094eb6f725c6ca42b0f97e313cb5d5512459feda"},
+    {file = "colorama-0.3.9.tar.gz", hash = "sha256:48eb22f4f8461b1df5734a074b57042430fb06e1d61bd1e11b078c0fe6d7a1f1"},
 ]
 
 [[package]]
 name = "mpfshell"
 version = "0.9.3"
-description = "A simple shell based file explorer for ESP8266 and WiPy Micropython devices."
+description = "A simple shell based file explorer for ESP8266 and WiPy Micropython devices"
 optional = false
-python-versions = "*"
+python-versions = ">=3.13"
 groups = ["main"]
-files = [
-    {file = "mpfshell-0.9.3-py3-none-any.whl", hash = "sha256:834d359cf98b862e31e9a409c00a58e6ac9bd372ca6a7fd9dd4b99b2cfa10ea6"},
-    {file = "mpfshell-0.9.3.tar.gz", hash = "sha256:3b2f176e17e9f9e08ccaf30a57503fae5bd15859d8d9efe74cc25a09abd8f349"},
-]
+files = []
+develop = false
 
 [package.dependencies]
-colorama = "*"
-pyserial = "*"
-websocket-client = "*"
+colorama = ">=0.3.6,<0.4.0"
+pyserial = ">=3.5,<4.0"
+telnetlib-313-and-up = {version = ">=3.13.1,<4.0.0", markers = "python_version >= \"3.13\""}
+websocket-client = ">=0.35.0,<0.36.0"
+
+[package.source]
+type = "directory"
+url = "../mpfshell"
 
 [[package]]
 name = "pyserial"
@@ -43,6 +46,18 @@ files = [
 
 [package.extras]
 cp2110 = ["hidapi"]
+
+[[package]]
+name = "six"
+version = "1.17.0"
+description = "Python 2 and 3 compatibility utilities"
+optional = false
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
+groups = ["main"]
+files = [
+    {file = "six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274"},
+    {file = "six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81"},
+]
 
 [[package]]
 name = "telnetlib-313-and-up"
@@ -101,22 +116,19 @@ watchmedo = ["PyYAML (>=3.10)"]
 
 [[package]]
 name = "websocket-client"
-version = "1.8.0"
-description = "WebSocket client for Python with low level API options"
+version = "0.35.0"
+description = "WebSocket client for python. hybi13 is supported."
 optional = false
-python-versions = ">=3.8"
+python-versions = "*"
 groups = ["main"]
 files = [
-    {file = "websocket_client-1.8.0-py3-none-any.whl", hash = "sha256:17b44cc997f5c498e809b22cdf2d9c7a9e71c02c8cc2b6c56e7c2d1239bfa526"},
-    {file = "websocket_client-1.8.0.tar.gz", hash = "sha256:3239df9f44da632f96012472805d40a23281a991027ce11d2f45a6f24ac4c3da"},
+    {file = "websocket_client-0.35.0.tar.gz", hash = "sha256:5ac3ead091be17b680a0dda926aef1a697a2b6cf1e9ac0fbe4bffb14914c2116"},
 ]
 
-[package.extras]
-docs = ["Sphinx (>=6.0)", "myst-parser (>=2.0.0)", "sphinx-rtd-theme (>=1.1.0)"]
-optional = ["python-socks", "wsaccel"]
-test = ["websockets"]
+[package.dependencies]
+six = "*"
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13"
-content-hash = "62dba16ca10c94059065b33721917d7d68fdcffb7b0a77d1ef95b241dfc6f14c"
+content-hash = "1da17a18a32ec68e7aa79c2f82b08ece8824327f7ffc24af61c4db856f3551ed"

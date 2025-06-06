@@ -5,20 +5,16 @@ them to a micropython board.
 Author: Thilo Michael (uhlomuhlo@gmail.com)
 """
 
-import time
 import argparse
-import os
-import sys
-import queue
-import threading
+from pathlib import PosixPath
+from typing import Optional, Union
 
-import mp.mpfshell as mpf
-
-from watchdog.observers import Observer
-from watchdog.events import PatternMatchingEventHandler
+from mp.conbase import ConError
+from mp.mpfexp import MpFileExplorer, MpFileExplorerCaching, RemoteIOError
+from mp.pyboard import PyboardError
 
 
-class MPSync(threading.Thread):
+class MPSync():
     """
     The class that handles the the synchronizing between the folder and the MicroPython
     board.
@@ -33,165 +29,99 @@ class MPSync(threading.Thread):
     """Time to wait after filesystem changes before uploading begins."""
     WAITING_TIME = 0.5
 
-    def __init__(self, folder=".", port="/dev/ttyUSB0", verbose=False):
-        super().__init__()
+    def __init__(self, folder=".", port="/dev/ttyUSB0", verbose=False, reset=False, caching=False):
         self.folder = folder
         self.port = port
-        self.mpfs = mpf.MpFileShell()
+        self.reset = reset
+        self.caching = caching
+        self._explorer: Optional[Union[MpFileExplorer, MpFileExplorerCaching]] = None
         self.verbose = verbose
-        if not verbose:
-            self.mpfs._MpFileShell__error = lambda x: None
-        self.wd = None
-        self._q = queue.Queue()
-        self._running = False
+        self._error = []
         self._ts = 0
-        self._create_watchdog()
 
-    def _copy_file(self, file):
-        dst = file.replace(self.folder, "")
+    @property
+    def explorer(self) -> Union[MpFileExplorer, MpFileExplorerCaching]:
+        if self._explorer is None:
+            raise Exception("unconnected, please connect!")
+        return self._explorer
+
+    def _copy_file(self, file:PosixPath):
+        dst = file.as_posix().replace(self.folder, "")
         print(f"Copying {dst}")
-        self.mpfs.do_put(f"{file} {dst}")
+        self.explorer.put(file, dst)
 
-    def _create_folder(self, folder):
-        dst = folder.replace(self.folder, "")
+    def _create_folder(self, folder:PosixPath):
+        dst = folder.as_posix().replace(self.folder, "")
         print(f"Creating folder {dst}")
-        self.mpfs.do_mkdir(dst)
+        try:
+            self.explorer.md(dst)
+        except RemoteIOError as e:
+            print(e)
 
-    def _delete(self, path):
-        dst = path.replace(self.folder, "")
+    def _delete(self, path:PosixPath):
+        dst = path.as_posix().replace(self.folder, "")
         print(f"Deleting {dst}")
-        self.mpfs.do_rm(dst)
+        self.explorer.rm(dst)
 
-    def _on_created(self, event):
-        self._q.put(("CREATE", event.src_path))
-        self._ts = time.time()
-
-    def perform_create(self, src_path):
-        if self.verbose:
-            print(f"PERFORMING create {src_path}")
-        if os.path.isfile(src_path):  # FILE
-            self._copy_file(src_path)
-        elif os.path.isfolder(src_path):  # FOLDER
-            self._create_folder(src_path)
-
-    def _on_deleted(self, event):
-        self._q.put(("DELETE", event.src_path))
-        self._ts = time.time()
-
-    def perform_delete(self, src_path):
-        if self.verbose:
-            print("PERFORMING delete")
-        self._delete(src_path)
-
-    def _on_moved(self, event):
-        self._q.put(("MOVE", (event.src_path, event.dest_path)))
-        self._ts = time.time()
-
-    def perform_move(self, src_path, dst_path):
-        if self.verbose:
-            print("PERFORMING move")
-        if os.path.isfile(dst_path):
-            self._delete(src_path)
-            self._copy_file(dst_path)
-        else:
-            print("Moving folders not (yet) supported!")
-
-    def _on_modified(self, event):
-        self._q.put(("MODIFY", event.src_path))
-        self._ts = time.time()
-
-    def perform_modify(self, src_path):
-        if self.verbose:
-            print("PERFORMING modify")
-        if os.path.isfile(src_path):
-            self._copy_file(src_path)
-
-    def _mpconnect(self):
-        """Connects to a micropython board. This has to be called before copying files
-        to the board."""
-        if self.mpfs._MpFileShell__is_open():
-            return True
-
-        p = self.port
-        if not os.path.exists(p) or os.path.isdir(p):
-            print(f"Port '{p}' does not exist or is a folder!")
-            return False
-
-        for i in range(self.CONNECT_TRIES):
-            self.mpfs.do_open(f"{self.MPF_PROTOCOL}:{p}")
-            if self.mpfs._MpFileShell__is_open():
+    def disconnect(self):
+        if self._explorer is not None:
+            try:
+                self._explorer.close()
+                self._explorer = None
                 return True
-
-        print(f"Could not connect to board {p}!")
+            except RemoteIOError as e:
+                print(e)
         return False
 
-    def _mpdisconnect(self):
-        """Disconnectes from the board. Has to be called to soft-reset the board.
-        Preferrably after every upload."""
-        if not self.mpfs._MpFileShell__is_open():
+    def connect(self):
+        """Connects to a micropython board. This has to be called before copying files
+        to the board."""
+        port_path = PosixPath(self.port)
+        try:
+            self.disconnect()
+            if not port_path.exists() or port_path.is_dir():
+                print(f"Port '{self.port}' does not exist or is a folder!")
+                return False
+            for i in range(self.CONNECT_TRIES):
+                if self.caching:
+                    self._explorer = MpFileExplorerCaching(
+                        f"{self.MPF_PROTOCOL}:{self.port}",
+                        reset=self.reset
+                    )
+                else:
+                    self._explorer = MpFileExplorer(
+                        f"{self.MPF_PROTOCOL}:{self.port}",
+                        reset=self.reset
+                    )
+                if self.explorer:
+                    print("Connected to %s" % self.explorer.sysname)
+                    return True
+                print(f"could not connect to {self.port} [{i}/{self.CONNECT_TRIES}]")
+        except (PyboardError,ConError,AttributeError) as e:
+            print(str(e))
+        print(f"could not connect to board {self.port}!")
+        return False
+
+    def __enter__(self):
+        if self.connect():
+            return self
+        raise Exception("can't connect")
+
+    def __exit__(self, _, __, ___):
+        if self.disconnect():
             return
+        raise Exception("can't disconnect")
 
-        self.mpfs.do_close("")
-
-        if self.mpfs._MpFileShell__is_open():
-            print(f"Could not close connection to board {p}!")
-
-    def _create_watchdog(self):
-        """Creates a watchdog on everything in the specified folder."""
-        f = self.folder
-
-        # Abort if folder is not set
-        if not os.path.exists(f) or not os.path.isdir(f):
-            print(f"Path '{f}' does not exist or is not a folder!")
-            sys.exit(1)
-
-        # Create a Watchdog on the folder
-        eh = PatternMatchingEventHandler(patterns=["*"], ignore_patterns=[""], ignore_directories=False, case_sensitive=False)  # match everything
-        eh.on_created = self._on_created
-        eh.on_modified = self._on_modified
-        eh.on_moved = self._on_moved
-        eh.on_deleted = self._on_deleted
-        self.wd = Observer()
-        self.wd.schedule(eh, f, recursive=True)
-
-    def run(self):
-        waiting_time = self.WAITING_TIME
-        while self._running:
-            if time.time() - self._ts > waiting_time:
-                q = self._q
-                if not q.empty():
-                    if not self._mpconnect():
-                        print("Could not connect to board! Retrying in 5 seconds")
-                        time.sleep(5)
-                        continue
-                    while not q.empty():
-                        try:
-                            action, params = q.get(False)
-                            if action == "CREATE":
-                                self.perform_create(params)
-                            elif action == "DELETE":
-                                self.perform_delete(params)
-                            elif action == "MOVE":
-                                self.perform_move(params[0], params[1])
-                            elif action == "MODIFY":
-                                self.perform_modify(params)
-                        except queue.Empty:
-                            pass
-                    q.task_done()
-                    self._mpdisconnect()
-            time.sleep(0.1)
-
-    def start_sync(self):
-        """Starts the synchronization. Non-blocking!"""
-        self.wd.start()
-        self._running = True
-        self.start()
-
-    def stop_sync(self):
-        """Stops the synchronization."""
-        self.wd.stop()
-        self._running = False
-
+    def sync(self,f: Optional[PosixPath]=None):
+        if not f:
+            f = PosixPath(self.folder)
+        for entry in f.glob("*"):
+            if entry.is_dir():
+                self._create_folder(entry)
+                self.sync(entry)
+            elif entry.is_file():
+                self._copy_file(entry)
+        return
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -224,17 +154,12 @@ def parse_args():
 def main():
     args = parse_args()
     if not args.folder:
-        args.folder = os.getcwd()
-    mps = MPSync(folder=args.folder, port=args.port, verbose=args.verbose)
-    print(f"Start syncing folder '{args.folder}' to board at '{args.port}'")
-    mps.start_sync()
-    try:
-        while True:
-            time.sleep(0.1)
-    except KeyboardInterrupt:
-        pass
-    mps.stop_sync()
+        args.folder = PosixPath().cwd().as_posix()
 
+    with MPSync(folder=args.folder, port=args.port, verbose=args.verbose) as mps:
+        print(f"Start syncing folder '{args.folder}' to board at '{args.port}'")
+        mps.sync()
+    return
 
 if __name__ == "__main__":
     main()

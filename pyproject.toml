@@ -1,6 +1,6 @@
 [project]
 name = "mpsync"
-version = "0.1.0"
+version = "0.1.1"
 description = "My MpSync for development"
 authors = [
     {name = "Cellebyte",email = "marcel.fest@live.de"}
@@ -9,7 +9,7 @@ license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "mpfshell (>=0.9.3,<0.10.0)",
+    "mpfshell @ file:///home/cellebyte/git/mpfshell",
     "watchdog (>=6.0.0,<7.0.0)",
     "telnetlib-313-and-up (>=3.13.1,<4.0.0)",
 ]

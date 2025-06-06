@@ -2,3 +2,4 @@ build/
 dist/
 mpsync.egg-info
 __pycache__/
+.vscode
